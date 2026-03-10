@@ -6,11 +6,13 @@ import Webcam from 'react-webcam';
 import { toast } from 'sonner';
 import { useUser } from '@clerk/nextjs';
 import moment from 'moment';
+import AudioVisualizer from "@/components/ui/AudioVisualizer";
 
 function RecordAnswerSection({ mockInterviewQuestion, activeQuestionIndex, interviewData }) {
   const [userAnswer, setUserAnswer] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [stream, setStream] = useState(null);
   const { user } = useUser();
 
   const mediaRecorderRef = useRef(null);
@@ -18,6 +20,8 @@ function RecordAnswerSection({ mockInterviewQuestion, activeQuestionIndex, inter
 
   const startRecording = async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    setStream(stream);
+
     const mediaRecorder = new MediaRecorder(stream);
 
     mediaRecorderRef.current = mediaRecorder;
@@ -64,11 +68,17 @@ function RecordAnswerSection({ mockInterviewQuestion, activeQuestionIndex, inter
       setUserAnswer(data.text);
 
       const feedbackPrompt =
-        "Question: " +
+        "Interview Question: " +
         mockInterviewQuestion?.[activeQuestionIndex]?.question +
-        ", User Answer: " +
+        "\nUser Answer: " +
         data.text +
-        " Please give rating and feedback in JSON format with rating and feedback fields.";
+        "\n\nEvaluate the user's answer like an interview evaluator." +
+        "\nGive the response strictly in JSON format with the following fields:" +
+        "\n- rating: score for this answer out of 10" +
+        "\n- feedback: short constructive feedback (2-3 sentences)" +
+        "\n- improvement: what the candidate could improve in the answer" +
+        "\n- overall_rating: overall interview performance score out of 10" +
+        "\nReturn only JSON.";
 
       const result = await fetch("/api/generate", {
         method: "POST",
@@ -86,7 +96,6 @@ function RecordAnswerSection({ mockInterviewQuestion, activeQuestionIndex, inter
           .trim();
 
         const parsed = JSON.parse(cleanText);
-        console.log("Parsed Feedback:", parsed);
 
         const saveResponse = await fetch("/api/save-answer", {
           method: "POST",
@@ -134,6 +143,12 @@ function RecordAnswerSection({ mockInterviewQuestion, activeQuestionIndex, inter
         />
       </div>
 
+      {isRecording && (
+        <div className="mt-6">
+          <AudioVisualizer stream={stream} isRecording={isRecording} />
+        </div>
+      )}
+
       <Button
         disabled={loading}
         variant='outline'
@@ -148,8 +163,6 @@ function RecordAnswerSection({ mockInterviewQuestion, activeQuestionIndex, inter
           loading ? "Processing..." : "Record Answer"}
       </Button>
 
-      <h2>Transcript:</h2>
-      <p>{userAnswer}</p>
     </div>
   );
 }

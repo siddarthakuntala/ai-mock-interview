@@ -8,6 +8,7 @@ import Webcam from 'react-webcam';
 import { WebcamIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from "next/link";
+import AudioVisualizer from "@/components/ui/AudioVisualizer";
 
 function Interview({ params }) {
     const [interviewData, setInterviewData] = useState();

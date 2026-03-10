@@ -1,42 +1,104 @@
-"use client"
-import React, { useState } from 'react'
+"use client";
+
+import React, { useState } from "react";
 import { db } from "@/utils/db";
 import { GoogleGenAI } from "@google/genai";
-import { useRouter } from 'next/navigation';
+import { useRouter } from "next/navigation";
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from "@/components/ui/dialog"
-import { LoaderIcon } from 'lucide-react';
-import { MockInterview } from '@/utils/schema';
-import { v4 as uuidv4 } from 'uuid';
-import { useUser } from '@clerk/nextjs';
-import moment from 'moment';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { LoaderIcon } from "lucide-react";
+import { MockInterview } from "@/utils/schema";
+import { v4 as uuidv4 } from "uuid";
+import { useUser } from "@clerk/nextjs";
+import moment from "moment";
+
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  "pdfjs-dist/legacy/build/pdf.worker.min.mjs",
+  import.meta.url
+).toString();
+
 function AddNewInterview() {
-    const [openDailog, setOpenDailog] = useState(false)
-    const [jobPosition, setJobPosition] = useState();
-    const [jobDesc, setJobDesc] = useState();
-    const [jobExperience, setJobExperience] = useState();
-    const [loading, setLoading] = useState(false);
-    const { user } = useUser();
-    const router = useRouter();
-    const onSubmit = async (e) => {
-        setLoading(true)
-        e.preventDefault();
+  const [openDailog, setOpenDailog] = useState(false);
+  const [jobPosition, setJobPosition] = useState();
+  const [jobDesc, setJobDesc] = useState();
+  const [jobExperience, setJobExperience] = useState();
+  const [loading, setLoading] = useState(false);
+  const [resume, setResume] = useState();
 
-        console.log(jobPosition, jobDesc, jobExperience);
+  const { user } = useUser();
+  const router = useRouter();
 
-        const inputPrompt = `
+  const extractPDFText = async (file) => {
+    const arrayBuffer = await file.arrayBuffer();
+
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+    let text = "";
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+
+      const pageText = content.items
+        .map((item) => item.str)
+        .join(" ");
+
+      text += pageText + " ";
+    }
+
+    return text.replace(/\s+/g, " ").trim();
+  };
+
+  // Camera + Microphone permission check
+  const checkMediaPermissions = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true,
+      });
+
+      stream.getTracks().forEach((track) => track.stop());
+
+      return true;
+    } catch (error) {
+      alert("Camera and Microphone access is required to start the interview.");
+      return false;
+    }
+  };
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+
+    // Check camera + microphone before starting interview
+    const allowed = await checkMediaPermissions();
+    if (!allowed) return;
+
+    setLoading(true);
+
+    console.log(jobPosition, jobDesc, jobExperience);
+
+    let resumeText = "";
+
+    if (resume && resume.type === "application/pdf") {
+      resumeText = await extractPDFText(resume);
+    }
+    console.log(resumeText);
+
+    const inputPrompt = `
 You are an expert technical interviewer.
 
 Input:
 - Job Description (JD): ${jobDesc}
 - Role: ${jobPosition}
 - Candidate Experience: ${jobExperience}
+- Candidate Resume: ${resumeText}
 
 Task:
 Generate exactly 5 interview questions tailored to the JD, role, and experience level.
@@ -56,148 +118,160 @@ Strict Rules:
 Required Output Format:
 {
   "questions": [
-    {
-      "question": "string",
-      "answer": "string"
-    },
-    {
-      "question": "string",
-      "answer": "string"
-    },
-    {
-      "question": "string",
-      "answer": "string"
-    },
-    {
-      "question": "string",
-      "answer": "string"
-    },
-    {
-      "question": "string",
-      "answer": "string"
-    }
+    { "question": "string", "answer": "string" },
+    { "question": "string", "answer": "string" },
+    { "question": "string", "answer": "string" },
+    { "question": "string", "answer": "string" },
+    { "question": "string", "answer": "string" }
   ]
 }
 `;
 
-        try {
-            const res = await fetch("/api/generate", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ prompt: inputPrompt }),
-            });
+    try {
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ prompt: inputPrompt }),
+      });
 
-            const data = await res.json();
-            // console.log("--------------------RAW AI RESPONSE:-------------"+data)
-            if (!data?.text) {
-                console.log("Invalid AI response:", data);
-                setLoading(false);
-                return;
-            }
+      const data = await res.json();
 
-            const cleanText = data.text
-                .replace(/```json/g, "")
-                .replace(/```/g, "")
-                .trim();
-
-            const parsed = JSON.parse(cleanText);
-
-            console.log("AI Response:", parsed);
-            if (parsed) {
-                const resp = await db.insert(MockInterview)
-                    .values({
-                        mockId: uuidv4(),
-                        jsonMockResp: parsed,
-                        jobPosition: jobPosition,
-                        jobDesc: jobDesc,
-                        jobExperience: jobExperience,
-
-                        createdBy: user?.primaryEmailAddress?.emailAddress,
-                        createdAt: moment().format('DD-MM-YYYY')
-                    })
-                    .returning({ mockId: MockInterview.mockId });
-
-                console.log("inserted");
-                if (resp) {
-                    setOpenDailog(false);
-                    router.push('/dashboard/interview/' + resp[0]?.mockId)
-                }
-            } else {
-                console.log("error in inserting");
-            }
-
-        } catch (error) {
-            console.error("Error:", error);
-        }
+      if (!data?.text) {
+        console.log("Invalid AI response:", data);
         setLoading(false);
-    };
-    return (
-        <div>
-            <div className="p-10 border rounded-lg bg-secondary
-        hover:scale-105 hover:shadow-md cursor-pointer transition-all"
-                onClick={() => setOpenDailog(true)}>
-                <h2 className="text-lg">+ Add new</h2>
+        return;
+      }
+
+      const cleanText = data.text
+        .replace(/```json/g, "")
+        .replace(/```/g, "")
+        .trim();
+
+      const parsed = JSON.parse(cleanText);
+
+      console.log("AI Response:", parsed);
+
+      if (parsed) {
+        const resp = await db
+          .insert(MockInterview)
+          .values({
+            mockId: uuidv4(),
+            jsonMockResp: parsed,
+            jobPosition: jobPosition,
+            jobDesc: jobDesc,
+            jobExperience: jobExperience,
+            createdBy: user?.primaryEmailAddress?.emailAddress,
+            createdAt: moment().format("DD-MM-YYYY"),
+          })
+          .returning({ mockId: MockInterview.mockId });
+
+        console.log("inserted");
+
+        if (resp) {
+          setOpenDailog(false);
+          router.push("/dashboard/interview/" + resp[0]?.mockId);
+        }
+      } else {
+        console.log("error in inserting");
+      }
+    } catch (error) {
+      console.error("Error:", error);
+    }
+
+    setLoading(false);
+  };
+
+  return (
+    <div>
+      <div
+        className="p-10 border rounded-lg bg-secondary hover:scale-105 hover:shadow-md cursor-pointer transition-all"
+        onClick={() => setOpenDailog(true)}
+      >
+        <h2 className="text-lg">+ Add new</h2>
+      </div>
+
+      <Dialog open={openDailog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl">
+              Interview Detail
+            </DialogTitle>
+            <DialogDescription>
+              Enter job details for generating interview questions
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={onSubmit}>
+            <div>
+              <h2>Add Details</h2>
+
+              <div className="my-3">
+                <label>Job Role:</label>
+                <input
+                  placeholder="Ex. Full Stack Developer"
+                  required
+                  onChange={(e) => setJobPosition(e.target.value)}
+                />
+              </div>
+
+              <div className="my-3">
+                <label>Job Description:</label>
+                <input
+                  placeholder="Ex. React, Angular, Node js, etc"
+                  required
+                  onChange={(e) => setJobDesc(e.target.value)}
+                />
+              </div>
+
+              <div className="my-3">
+                <label>Experience:</label>
+                <input
+                  placeholder="Ex. 1"
+                  type="number"
+                  max={50}
+                  required
+                  onChange={(e) => setJobExperience(e.target.value)}
+                />
+              </div>
+
+              <div className="my-3">
+                <label className="block mb-1">Resume:</label>
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx"
+                  required
+                  className="border border-gray-300 outline-none rounded-md p-2 w-55 focus:border-black"
+                  onChange={(e) => setResume(e.target.files[0])}
+                />
+              </div>
             </div>
-            <Dialog open={openDailog}>
-                <DialogContent className='max-w-2xl'>
-                    <DialogHeader>
-                        <DialogTitle className='text-2xl'>Interview Detail</DialogTitle>
-                        <DialogDescription>
-                            Enter job details for generating interview questions
-                        </DialogDescription>
-                    </DialogHeader>
 
-                    <form onSubmit={onSubmit}>
-                        <div>
-                            <h2>Add Details</h2>
+            <div className="flex gap-5 justify-end">
+              <button
+                type="button"
+                onClick={() => setOpenDailog(false)}
+              >
+                Cancel
+              </button>
 
-                            <div className='my-3'>
-                                <label>Job Role</label>
-                                <input
-                                    placeholder='Ex. Full Stack Developer'
-                                    required
-                                    onChange={(e) => setJobPosition(e.target.value)}
-                                />
-                            </div>
-
-                            <div className='my-3'>
-                                <label>Job Description</label>
-                                <input
-                                    placeholder='Ex. React, Angular, Node js, etc'
-                                    required
-                                    onChange={(e) => setJobDesc(e.target.value)}
-                                />
-                            </div>
-
-                            <div className='my-3'>
-                                <label>Experience</label>
-                                <input
-                                    placeholder='Ex. 1'
-                                    type='number'
-                                    max={50}
-                                    required
-                                    onChange={(e) => setJobExperience(e.target.value)}
-                                />
-                            </div>
-                        </div>
-
-                        <div className='flex gap-5 justify-end'>
-                            <button type='button' onClick={() => setOpenDailog(false)}>
-                                Cancel
-                            </button>
-                            <button type='submit' disabled={loading}>
-                                {loading ?
-                                    <>
-                                        <LoaderIcon className='animate-spin mr-2' />'Generating from AI'
-                                    </> : 'Start Interview'
-                                }
-                            </button>
-                        </div>
-                    </form>
-                </DialogContent>
-            </Dialog>
-        </div>
-    )
+              <button type="submit" disabled={loading}>
+                {loading ? (
+                  <>
+                    <LoaderIcon className="animate-spin mr-2" />
+                    Generating from AI
+                  </>
+                ) : (
+                  "Start Interview"
+                )}
+              </button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
 }
 
-export default AddNewInterview
+export default AddNewInterview;

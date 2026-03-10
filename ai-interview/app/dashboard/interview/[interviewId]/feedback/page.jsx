@@ -44,10 +44,27 @@ function Feedback({ params }) {
     }
   };
 
+  const calculateAverageRating = () => {
+    if (feedbackList.length === 0) return 0;
+    const totalRating = feedbackList.reduce((sum, item) => {
+      const rating = parseFloat(item.rating) || 0;
+      return sum + rating;
+    }, 0);
+    return (totalRating / feedbackList.length).toFixed(2);
+  };
+
   return (
     <div className="p-10">
-      <h2 className="text-2xl font-bold text-red-700">Congratulation</h2>
+      <h2 className="text-2xl font-bold text-red-700">Congratulations!</h2>
       <h2 className="font-bold text-2xl">Here is your interview feedback</h2>
+
+      {feedbackList.length > 0 && (
+        <div className="mt-5 p-4 bg-blue-50 border-2 border-blue-500 rounded-lg">
+          <h3 className="text-lg font-bold text-blue-700">
+            Overall Rating: <span className="text-2xl">{calculateAverageRating()}</span>/10
+          </h3>
+        </div>
+      )}
 
       {feedbackList.length === 0 && (
         <p className="mt-5 text-gray-500">No feedback found.</p>
