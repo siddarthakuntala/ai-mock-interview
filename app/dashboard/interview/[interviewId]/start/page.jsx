@@ -27,7 +27,7 @@ function StartInterview({ params }) {
   const [isLastMinute, setIsLastMinute] = useState(false);
   const [mediaReady, setMediaReady] = useState(false);
 
-  const INTERVIEW_DURATION = 60 * 2;
+  const INTERVIEW_DURATION = 60 * 10;
 
   const [timeLeft, setTimeLeft] = useState(() => {
     if (typeof window === "undefined") return INTERVIEW_DURATION;
@@ -197,18 +197,8 @@ function StartInterview({ params }) {
       )}
 
       {/* Progress bar */}
+      {/* Progress bar */}
       <div className="flex gap-1.5 mb-5">
-        {(questions || []).map((_, i) => (
-          <div
-            key={i}
-            className={`h-1 flex-1 rounded-full transition-colors ${i < activeQuestionIndex
-              ? "bg-foreground"
-              : i === activeQuestionIndex
-                ? "bg-foreground/60"
-                : "bg-border"
-              }`}
-          />
-        ))}
       </div>
 
       {/* Main grid */}
@@ -237,9 +227,9 @@ function StartInterview({ params }) {
         </p>
         {!isLastMinute && activeQuestionIndex !== questions?.length - 1 && (
           <button
+            disabled={isProcessing}
             onClick={async () => {
               const nextIndex = activeQuestionIndex + 1;
-
               if (nextIndex < questions.length) {
                 setActiveQuestionIndex(nextIndex);
               } else {
@@ -248,18 +238,15 @@ function StartInterview({ params }) {
                     .select()
                     .from(MockInterview)
                     .where(eq(MockInterview.mockId, interviewData.mockId));
-
                   const json = JSON.parse(res[0].jsonMockResp);
-
                   setQuestions(json.questions || []);
                   setActiveQuestionIndex(nextIndex);
-
                 } catch (err) {
                   console.error("Fetch failed:", err);
                 }
               }
             }}
-            className="h-9 px-5 text-sm font-medium rounded-full bg-foreground text-background hover:opacity-90 transition-opacity flex items-center gap-2"
+            className="h-9 px-5 text-sm font-medium rounded-full bg-foreground text-background transition-opacity flex items-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed hover:opacity-90 disabled:hover:opacity-30"
           >
             Next question
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

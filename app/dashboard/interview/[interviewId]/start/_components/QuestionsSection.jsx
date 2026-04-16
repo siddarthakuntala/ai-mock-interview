@@ -40,21 +40,9 @@ function QuestionsSection({ mockInterviewQuestion, activeQuestionIndex, setActiv
   return (
     <div className="bg-background border border-border rounded-2xl p-5 flex flex-col gap-5 h-full">
 
-      <div className="flex items-center gap-2 flex-wrap">
-        {mockInterviewQuestion?.map((_, index) => (
-          <div
-            key={index}
-            className={`h-7 px-3 text-xs font-medium rounded-full border select-none ${
-              activeQuestionIndex === index
-                ? "bg-foreground text-background border-foreground"
-                : index < activeQuestionIndex
-                ? "bg-muted border-border text-muted-foreground"
-                : "bg-transparent border-border text-muted-foreground opacity-40"
-            }`}
-          >
-            Q{index + 1}
-          </div>
-        ))}
+      {/* ✅ Only current question number */}
+      <div className="text-sm font-medium text-muted-foreground">
+        Question {activeQuestionIndex + 1}
       </div>
 
       <div className="border-t border-border" />
@@ -90,6 +78,7 @@ function QuestionsSection({ mockInterviewQuestion, activeQuestionIndex, setActiv
             </>
           )}
         </button>
+
         <span className="text-[11px] text-muted-foreground">
           {isSpeaking ? "Reading question..." : "Take your time"}
         </span>

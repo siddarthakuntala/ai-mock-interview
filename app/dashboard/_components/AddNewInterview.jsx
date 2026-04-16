@@ -74,7 +74,7 @@ function AddNewInterview() {
     }
 
     const inputPrompt = `
-You are a senior technical interviewer with real-world industry experience.
+You are a senior technical interviewer.
 
 Input:
 - Job Description (JD): ${jobDesc}
@@ -83,31 +83,39 @@ Input:
 - Candidate Resume: ${resumeText}
 
 Task:
-Generate exactly TWO high-quality interview questions with answers.
+Generate exactly 5 interview questions with answers.
 
-Instructions for Question Style:
-- Ask direct, natural interview questions (like a real interviewer speaking).
-- Do NOT include phrases like "based on the JD", "according to the resume", etc.
-- Questions must be clear, specific, and technically deep.
-- Avoid generic or textbook questions.
-- Prefer scenario-based, problem-solving, or concept-application questions.
-- Match difficulty to the candidate's experience level.
+Question Distribution (VERY IMPORTANT):
+- 2 questions → Core programming skills (Java, C, Python, DSA, problem solving)
+- 1 question → Web development (MERN / backend / APIs)
+- 1 question → Machine Learning / AI concepts (if relevant)
+- 1 question → Project-based (only ONE, not more)
+
+Instructions for Questions:
+- Keep questions SHORT (max 15–20 words)
+- Ask like a real interviewer (natural tone)
+- Avoid long scenarios or storytelling
+- Focus on concepts, debugging, edge cases, or real-world usage
+- Avoid repeating same topic
 
 Instructions for Answers:
-- Answers must be concise but technically correct.
-- Include key concepts, not long explanations.
+- Keep answers concise (2–4 lines max)
+- Must include key technical points
+- No unnecessary explanation
 
 Strict Output Rules:
-1. Output MUST be valid JSON.
-2. Do NOT include markdown, explanations, comments, or extra text.
-3. Do NOT wrap output in code fences.
-4. All keys and string values MUST use double quotes.
-5. No trailing commas.
-6. Return exactly 2 items in the questions array.
+1. Output MUST be valid JSON
+2. No markdown or extra text
+3. Use double quotes only
+4. No trailing commas
+5. Exactly 5 questions
 
 Output Format:
 {
   "questions": [
+    { "question": "string", "answer": "string" },
+    { "question": "string", "answer": "string" },
+    { "question": "string", "answer": "string" },
     { "question": "string", "answer": "string" },
     { "question": "string", "answer": "string" }
   ]

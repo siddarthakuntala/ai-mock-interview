@@ -4,8 +4,20 @@ import React, { useEffect, useState, use } from "react";
 import { db } from "@/utils/db";
 import { UserAnswer } from "@/utils/schema";
 import { eq } from "drizzle-orm";
-import { ChevronsUpDown, ChevronUp, Home, Trophy, MessageSquare, Star } from "lucide-react";
+import { ChevronsUpDown, ChevronUp, Home, Trophy, MessageSquare, Star, Volume2, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
+
+// ✅ ADDED: Normalize rating
+const normalizeRating = (rating) => {
+  if (rating === null || rating === undefined) return 0;
+  return Number(String(rating).split("/")[0]) || 0;
+};
+
+// ✅ ADDED: Normalize score
+const normalizeScore = (score) => {
+  if (score === null || score === undefined) return 0;
+  return Number(String(score).split("/")[0]) || 0;
+};
 
 function Feedback({ params }) {
   const resolvedParams = use(params);
@@ -39,7 +51,10 @@ function Feedback({ params }) {
 
   const calculateAverageRating = () => {
     if (feedbackList.length === 0) return 0;
-    const total = feedbackList.reduce((sum, item) => sum + (parseFloat(item.rating) || 0), 0);
+    const total = feedbackList.reduce(
+      (sum, item) => sum + normalizeRating(item.rating), // ✅ FIXED
+      0
+    );
     return (total / feedbackList.length).toFixed(1);
   };
 
@@ -51,7 +66,7 @@ function Feedback({ params }) {
   };
 
   const getRatingColor = (rating) => {
-    const r = parseFloat(rating);
+    const r = normalizeRating(rating); // ✅ FIXED
     if (r >= 8) return "text-green-700 bg-green-50 dark:bg-green-950/20 dark:text-green-400";
     if (r >= 5) return "text-amber-700 bg-amber-50 dark:bg-amber-950/20 dark:text-amber-400";
     return "text-red-600 bg-red-50 dark:bg-red-950/20 dark:text-red-400";
@@ -60,7 +75,6 @@ function Feedback({ params }) {
   const avg = parseFloat(calculateAverageRating());
   const performance = getPerformanceLabel(avg);
 
-  // ── Loading ──────────────────────────────────────────────
   if (loading) {
     return (
       <div className="min-h-screen bg-muted/30 flex items-center justify-center">
@@ -72,7 +86,6 @@ function Feedback({ params }) {
     );
   }
 
-  // ── Error ────────────────────────────────────────────────
   if (error) {
     return (
       <div className="min-h-screen bg-muted/30 flex items-center justify-center p-6">
@@ -90,7 +103,6 @@ function Feedback({ params }) {
     );
   }
 
-  // ── No feedback ──────────────────────────────────────────
   if (feedbackList.length === 0) {
     return (
       <div className="min-h-screen bg-muted/30 flex items-center justify-center p-6">
@@ -113,11 +125,9 @@ function Feedback({ params }) {
     );
   }
 
-  // ── Main ─────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-muted/30 p-5 md:p-8">
 
-      {/* Header */}
       <div className="mb-7">
         <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground mb-1">
           Interview complete
@@ -126,7 +136,6 @@ function Feedback({ params }) {
         <p className="text-sm text-muted-foreground">Here's your detailed interview feedback</p>
       </div>
 
-      {/* Stats row */}
       <div className="grid grid-cols-3 gap-3 mb-6">
         <div className="bg-background border border-border rounded-xl p-4">
           <p className="text-[11px] text-muted-foreground mb-1">Overall rating</p>
@@ -150,16 +159,14 @@ function Feedback({ params }) {
         </div>
       </div>
 
-      {/* Feedback list */}
       <div className="flex flex-col gap-3 mb-8">
         {feedbackList.map((item, index) => {
           const isOpen = openIndex === index;
+          const ratingValue = normalizeRating(item.rating); // ✅ FIXED
+
           return (
-            <div
-              key={index}
-              className="bg-background border border-border rounded-xl overflow-hidden"
-            >
-              {/* Trigger */}
+            <div key={index} className="bg-background border border-border rounded-xl overflow-hidden">
+
               <button
                 onClick={() => setOpenIndex(isOpen ? null : index)}
                 className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-muted/40 transition-colors"
@@ -167,13 +174,16 @@ function Feedback({ params }) {
                 <span className="text-[11px] font-medium bg-muted border border-border rounded-full px-2.5 py-0.5 text-muted-foreground shrink-0">
                   Q{index + 1}
                 </span>
+
                 <p className="flex-1 text-[13px] text-foreground leading-snug line-clamp-1">
                   {item.question}
                 </p>
+
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full ${getRatingColor(item.rating)}`}>
-                    {item.rating}/10
+                  <span className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full ${getRatingColor(ratingValue)}`}>
+                    {ratingValue}/10 {/* ✅ FIXED */}
                   </span>
+
                   {isOpen
                     ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" />
                     : <ChevronsUpDown className="w-3.5 h-3.5 text-muted-foreground" />
@@ -181,17 +191,14 @@ function Feedback({ params }) {
                 </div>
               </button>
 
-              {/* Expanded content */}
               {isOpen && (
                 <div className="px-5 pb-5 border-t border-border pt-4 flex flex-col gap-3">
 
-                  {/* Full question */}
                   <div>
                     <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-1.5">Question</p>
                     <p className="text-[13px] text-foreground leading-relaxed">{item.question}</p>
                   </div>
 
-                  {/* Your answer */}
                   {item.userAns && (
                     <div className="bg-muted/40 border border-border rounded-lg p-3.5">
                       <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-1.5">Your answer</p>
@@ -199,7 +206,6 @@ function Feedback({ params }) {
                     </div>
                   )}
 
-                  {/* Feedback */}
                   {item.feedback && (
                     <div className="bg-green-50 border border-green-100 rounded-lg p-3.5 dark:bg-green-950/20 dark:border-green-900">
                       <p className="text-[11px] font-medium uppercase tracking-wide text-green-700 dark:text-green-400 mb-1.5">Feedback</p>
@@ -207,22 +213,58 @@ function Feedback({ params }) {
                     </div>
                   )}
 
-                  {/* Rating bar */}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Score</p>
-                      <p className="text-[11px] text-muted-foreground">{item.rating}/10</p>
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Overall Score</p>
+                      <p className="text-[11px] text-muted-foreground">{ratingValue}/10</p>
                     </div>
+
                     <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all ${
-                          parseFloat(item.rating) >= 8 ? "bg-green-500" :
-                          parseFloat(item.rating) >= 5 ? "bg-amber-500" : "bg-red-500"
+                          ratingValue >= 8 ? "bg-green-500" :
+                          ratingValue >= 5 ? "bg-amber-500" : "bg-red-500"
                         }`}
-                        style={{ width: `${(parseFloat(item.rating) / 10) * 100}%` }}
+                        style={{ width: `${(ratingValue / 10) * 100}%` }}
                       />
                     </div>
                   </div>
+
+                  {item.communicationScore && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <Volume2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                        <div className="flex-1 flex items-center justify-between">
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Communication Score</p>
+                          <p className="text-[11px] text-muted-foreground">{normalizeScore(item.communicationScore)}/10</p>
+                        </div>
+                      </div>
+                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all bg-blue-500"
+                          style={{ width: `${(normalizeScore(item.communicationScore) / 10) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {item.confidenceScore && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <Zap className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                        <div className="flex-1 flex items-center justify-between">
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Confidence Score</p>
+                          <p className="text-[11px] text-muted-foreground">{normalizeScore(item.confidenceScore)}/10</p>
+                        </div>
+                      </div>
+                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all bg-purple-500"
+                          style={{ width: `${(normalizeScore(item.confidenceScore) / 10) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
 
                 </div>
               )}
@@ -231,7 +273,6 @@ function Feedback({ params }) {
         })}
       </div>
 
-      {/* Footer */}
       <div className="flex items-center justify-between pt-5 border-t border-border">
         <p className="text-xs text-muted-foreground">
           {feedbackList.length} question{feedbackList.length !== 1 ? "s" : ""} reviewed

@@ -12,6 +12,8 @@ export async function POST(req) {
       userAns: body.userAns,
       feedback: body.feedback,
       rating: body.rating,
+      communicationScore: body.communicationScore,
+      confidenceScore: body.confidenceScore,
       userEmail: body.userEmail,
       createdAt: body.createdAt,
     });

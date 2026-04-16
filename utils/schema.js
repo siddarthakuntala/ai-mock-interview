@@ -17,6 +17,8 @@ export const UserAnswer=pgTable('userAnswer',{
     userAns:text('userAns'),
     feedback:text('feedback'),
     rating:varchar('rating'),
+    communicationScore:varchar('communicationScore'),
+    confidenceScore:varchar('confidenceScore'),
     userEmail:varchar('userEmail'),
     createdAt:varchar('createdAt')
 })
