@@ -26,6 +26,7 @@ function StartInterview({ params }) {
   const [pendingEnd, setPendingEnd] = useState(false);
   const [isLastMinute, setIsLastMinute] = useState(false);
   const [mediaReady, setMediaReady] = useState(false);
+  const [questionBuffer, setQuestionBuffer] = useState([]);
 
   const INTERVIEW_DURATION = 60 * 10;
 
@@ -118,10 +119,40 @@ function StartInterview({ params }) {
 
       setMockInterviewQuestion(q);
       setQuestions(q);
+      setQuestionBuffer(q);
       setInterviewData(result[0]);
     }
   };
+  const generateNextBatch = async () => {
+    try {
+      const history = questionBuffer
+        .slice(0, activeQuestionIndex)
+        .map(q => ({
+          question: q.question,
+          answer: q.answer || ""
+        }));
 
+      const res = await fetch("/api/next-batch", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          history,
+          role: interviewData?.jobPosition
+        })
+      });
+
+      const data = await res.json();
+
+      if (data?.questions) {
+        setQuestionBuffer(prev => [...prev, ...data.questions]);
+      }
+
+    } catch (err) {
+      console.error("Batch generation failed", err);
+    }
+  };
   const handleEndInterview = () => {
     localStorage.removeItem("interviewStartTime");
     if (document.fullscreenElement) document.exitFullscreen();
@@ -204,12 +235,12 @@ function StartInterview({ params }) {
       {/* Main grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <QuestionsSection
-          mockInterviewQuestion={questions}
+          mockInterviewQuestion={questionBuffer}
           activeQuestionIndex={activeQuestionIndex}
           setActiveQuestionIndex={setActiveQuestionIndex}
         />
         <RecordAnswerSection
-          mockInterviewQuestion={questions}
+          mockInterviewQuestion={questionBuffer}
           activeQuestionIndex={activeQuestionIndex}
           interviewData={interviewData}
           setActiveQuestionIndex={setActiveQuestionIndex}
@@ -225,13 +256,19 @@ function StartInterview({ params }) {
         <p className="text-xs text-muted-foreground">
           Question {activeQuestionIndex + 1} of {questions?.length || "—"}
         </p>
-        {!isLastMinute && activeQuestionIndex !== questions?.length - 1 && (
+        {!isLastMinute && activeQuestionIndex !== questionBuffer?.length - 1 && (
           <button
             disabled={isProcessing}
             onClick={async () => {
               const nextIndex = activeQuestionIndex + 1;
               if (nextIndex < questions.length) {
                 setActiveQuestionIndex(nextIndex);
+
+                const remaining = questionBuffer.length - nextIndex;
+
+                if (remaining <= 2) {
+                  generateNextBatch();
+                }
               } else {
                 try {
                   const res = await db

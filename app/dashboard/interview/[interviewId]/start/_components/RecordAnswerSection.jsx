@@ -8,7 +8,7 @@ import { useUser } from '@clerk/nextjs';
 import moment from 'moment';
 import AudioVisualizer from '@/components/ui/AudioVisualizer';
 
-function RecordAnswerSection({ mockInterviewQuestion, activeQuestionIndex, interviewData, setIsProcessing }) {
+function RecordAnswerSection({ mockInterviewQuestion, activeQuestionIndex, interviewData, setIsProcessing, setQuestions}) {
   const [userAnswer, setUserAnswer] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -109,7 +109,14 @@ Answer: ${data.text}
         }
 
         console.log("Parsed Feedback:", parsed);
-
+        setQuestions(prev => {
+          const updated = [...prev];
+          updated[activeQuestionIndex] = {
+            ...updated[activeQuestionIndex],
+            answer: data.text
+          };
+          return updated;
+        });
         const saveResponse = await fetch("/api/save-answer", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
